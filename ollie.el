@@ -245,6 +245,9 @@ The server dispatches it asynchronously."
 (defvar-local ollie--mode-line-state "unknown"
   "Cached session state string for the mode line.")
 
+(defvar-local ollie--mode-line-usage ""
+  "Cached usage string for the mode line.")
+
 (defun ollie--refresh ()
   "Refresh the chat buffer if the chat file has grown on disk.
 Also updates the cached mode-line state."
@@ -255,6 +258,12 @@ Also updates the cached mode-line state."
     (when buf
       (with-current-buffer buf
         (setq ollie--mode-line-state (ollie--state))
+        (setq ollie--mode-line-usage
+              (or (condition-case nil
+                      (when-let (s (ollie--fread (ollie--session-file "usage")))
+                        (string-trim s))
+                    (error nil))
+                  ""))
         ;; The chat log is append-only, so size increasing means new content.
         (when (and size (> size ollie--chat-size))
           (setq ollie--chat-size size)
@@ -389,6 +398,9 @@ Key bindings:
                  (if (string= ollie--mode-line-state "idle")
                      (propertize "idle" 'face 'success)
                    (propertize ollie--mode-line-state 'face 'warning)))
+                (:eval
+                 (when (not (string-empty-p ollie--mode-line-usage))
+                   (concat "  " (replace-regexp-in-string "%" "%%" ollie--mode-line-usage))))
                 "  "
                 mode-line-end-spaces)))
 
