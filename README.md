@@ -74,16 +74,6 @@ The input window accepts multi-line prompts. Queued prompts are held until the c
 
 The mode line shows the active session ID and current state (`idle` or the running state name).
 
-## Credits
-
-Many sources of inspiration:
-
-- [Plan 9 from Bell Labs](https://9fans.net) — for an interesting system
-- [@9fans](https://github.com/9fans) — for the Plan 9 port
-- [Suckless](https://suckless.org) — for articulating good software development principles
-- [@simonfxr](https://github.com/simonfxr) — for a solid agent baseline to "borrow" from, and other nifty ideas
-- [@aws](https://github.com/aws/amazon-q-developer-cli) — for a solid open-source agent implementation
-
 ## License
 
 GPLv3
