@@ -1,6 +1,6 @@
 # ollie-el
 
-Emacs frontend for [ollie](https://github.com/lneely/ollie) via [ollie-9p](https://github.com/lneely/ollie-9p). Provides a chat buffer, prompt composition, interrupt handling, and session management. The agent core, backends, and tools are handled by the ollie-9p server.
+An [ollie](https://github.com/lneely/ollie) front-end, via [ollie-9p](https://github.com/lneely/ollie-9p), for our emacs friends. Provides a chat buffer, prompt composition, interrupt handling, and session management. The agent core, backends, and tools are handled by the ollie-9p server.
 
 ## Background
 
