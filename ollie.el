@@ -240,17 +240,20 @@ The server dispatches it asynchronously."
 ;;;; ──────────────── Diff faces ────────────────
 
 (defface ollie-diff-added
-  '((t :foreground "green3"))
+  '((((background dark))  :foreground "#5faf5f")
+    (((background light)) :foreground "#3a7a3a"))
   "Face for added lines in tool-result diff output."
   :group 'ollie)
 
 (defface ollie-diff-removed
-  '((t :foreground "red3"))
+  '((((background dark))  :foreground "#d75f5f")
+    (((background light)) :foreground "#a02020"))
   "Face for removed lines in tool-result diff output."
   :group 'ollie)
 
 (defface ollie-diff-hunk-header
-  '((t :foreground "cyan3"))
+  '((((background dark))  :foreground "#5fafaf")
+    (((background light)) :foreground "#1a6a6a"))
   "Face for hunk headers in tool-result diff output."
   :group 'ollie)
 
