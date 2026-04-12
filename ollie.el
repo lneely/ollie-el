@@ -241,19 +241,19 @@ The server dispatches it asynchronously."
 
 (defface ollie-diff-added
   '((((background dark))  :foreground "#5faf5f")
-    (((background light)) :foreground "#1a4d1a"))
+    (((background light)) :foreground "#3a7a3a"))
   "Face for added lines in tool-result diff output."
   :group 'ollie)
 
 (defface ollie-diff-removed
   '((((background dark))  :foreground "#d75f5f")
-    (((background light)) :foreground "#6e0f0f"))
+    (((background light)) :foreground "#a02020"))
   "Face for removed lines in tool-result diff output."
   :group 'ollie)
 
 (defface ollie-diff-hunk-header
   '((((background dark))  :foreground "#5fafaf")
-    (((background light)) :foreground "#0a4040"))
+    (((background light)) :foreground "#1a6a6a"))
   "Face for hunk headers in tool-result diff output."
   :group 'ollie)
 
