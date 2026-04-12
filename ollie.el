@@ -237,6 +237,23 @@ The server dispatches it asynchronously."
   (ollie--fwrite (ollie--session-file "ctl") "stop\n")
   (message "ollie: interrupted"))
 
+;;;; ──────────────── Diff faces ────────────────
+
+(defface ollie-diff-added
+  '((t :foreground "green3"))
+  "Face for added lines in tool-result diff output."
+  :group 'ollie)
+
+(defface ollie-diff-removed
+  '((t :foreground "red3"))
+  "Face for removed lines in tool-result diff output."
+  :group 'ollie)
+
+(defface ollie-diff-hunk-header
+  '((t :foreground "cyan3"))
+  "Face for hunk headers in tool-result diff output."
+  :group 'ollie)
+
 ;;;; ──────────────── Chat display ────────────────
 
 ;; We cache the mtime so we only re-read the file when it actually changes.
@@ -247,6 +264,44 @@ The server dispatches it asynchronously."
 
 (defvar-local ollie--mode-line-usage ""
   "Cached usage string for the mode line.")
+
+(defun ollie--block-start-p (line)
+  "Return non-nil if LINE begins a named chat block."
+  (or (string-prefix-p "-> "          line)
+      (string-prefix-p "user: "       line)
+      (string-prefix-p "assistant: "  line)
+      (string-prefix-p "retrying "    line)
+      (string-prefix-p "error: "      line)
+      (string-prefix-p "agent stalled" line)))
+
+(defun ollie--colorize-diffs ()
+  "Add diff highlighting to tool-result blocks in the current buffer.
+Must be called after `ansi-color-apply-on-region'."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((in-result nil))
+      (while (not (eobp))
+        (let* ((bol (point))
+               (eol (line-end-position))
+               (line (buffer-substring-no-properties bol eol)))
+          (cond
+           ;; Tool call: enter result mode; don't colorize this line.
+           ((string-prefix-p "-> " line)
+            (setq in-result t))
+           ;; Block-start: exit result mode; don't colorize this line.
+           ((and in-result (ollie--block-start-p line))
+            (setq in-result nil))
+           ;; Inside a result block: colorize diff lines.
+           (in-result
+            (let ((face (cond
+                         ((or (string-prefix-p "+++" line)
+                              (string-prefix-p "---" line)) 'shadow)
+                         ((string-prefix-p "+"   line)      'ollie-diff-added)
+                         ((string-prefix-p "-"   line)      'ollie-diff-removed)
+                         ((string-prefix-p "@@"  line)      'ollie-diff-hunk-header))))
+              (when face
+                (put-text-property bol eol 'face face)))))
+          (forward-line 1))))))
 
 (defun ollie--refresh ()
   "Refresh the chat buffer if the chat file has grown on disk.
@@ -272,6 +327,7 @@ Also updates the cached mode-line state."
             (erase-buffer)
             (insert-file-contents chat)
             (ansi-color-apply-on-region (point-min) (point-max))
+            (ollie--colorize-diffs)
             (when at-end (goto-char (point-max)))))
         (force-mode-line-update)))))
 
