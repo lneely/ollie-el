@@ -28,6 +28,14 @@
 ;;
 ;;   C-c C-c   submit
 ;;   C-c C-k   cancel
+;;
+;; State changes while the agent is running:
+;;
+;;   Writes to the backend, model, and agent files are rejected by the
+;;   server when the agent is not idle.  Commands sent via ctl (e.g.
+;;   compact, clear, model) are dispatched asynchronously and cannot
+;;   return errors; if the agent is running, the command is silently
+;;   rejected.  Read the state file to confirm a change took effect.
 
 ;;; Code:
 
