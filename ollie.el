@@ -57,7 +57,7 @@
 (defcustom ollie-default-session-opts nil
   "Default options passed when creating a new session.
 An alist of (KEY . VALUE) string pairs; valid keys are
-\"backend\", \"model\", \"agent\", and \"workdir\"."
+\"backend\", \"model\", \"agent\", and \"cwd\"."
   :type '(alist :key-type string :value-type string)
   :group 'ollie)
 
