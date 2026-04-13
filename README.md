@@ -59,8 +59,10 @@ In the `*ollie*` buffer:
 | `C-c C-q` | Open input window and compose a queued prompt |
 | `C-c C-c` | Interrupt the running turn |
 | `C-c C-k` | Kill the current session |
+| `C-c C-r` | Rename the current session |
 | `C-c C-n` / `n` | New session |
 | `C-c C-a` | Attach to a different session |
+| `C-c C-d` | Open the ollie mount in Dired |
 | `g` | Force-refresh the chat log |
 
 In the `*ollie-input*` window:

@@ -210,6 +210,20 @@ Returns the new session ID."
           (insert "Press 'n' or C-c C-n to start a new session.\n"))))
     (message "Session killed")))
 
+(defun ollie-rename-session (new-name)
+  "Rename the current ollie session to NEW-NAME."
+  (interactive "sNew session name: ")
+  (unless ollie--session-id (user-error "No active session"))
+  (when (string-empty-p (string-trim new-name))
+    (user-error "Empty name"))
+  (let ((old-dir (expand-file-name ollie--session-id (ollie--sessions-dir)))
+        (new-dir (expand-file-name new-name (ollie--sessions-dir))))
+    (rename-file old-dir new-dir)
+    (setq ollie--session-id new-name)
+    (ollie--persist-session new-name)
+    (force-mode-line-update)
+    (message "Renamed session to %s" new-name)))
+
 ;;;; ──────────────── State ────────────────
 
 (defun ollie--state ()
@@ -425,8 +439,10 @@ QUEUED non-nil means the prompt will be enqueued, not submitted immediately."
     (define-key m (kbd "C-c C-q") #'ollie-queue-input)
     (define-key m (kbd "C-c C-c") #'ollie-stop)
     (define-key m (kbd "C-c C-k") #'ollie-kill-session)
+    (define-key m (kbd "C-c C-r") #'ollie-rename-session)
     (define-key m (kbd "C-c C-n") #'ollie-new-and-open)
     (define-key m (kbd "C-c C-a") #'ollie-attach-and-open)
+    (define-key m (kbd "C-c C-d") #'ollie-dired)
     (define-key m (kbd "n")       #'ollie-new-and-open)
     (define-key m (kbd "g")       #'ollie-refresh)
     m)
@@ -447,6 +463,11 @@ QUEUED non-nil means the prompt will be enqueued, not submitted immediately."
   (interactive)
   (setq ollie--chat-size -1)
   (ollie--refresh))
+
+(defun ollie-dired ()
+  "Open the ollie-9p mount point in Dired."
+  (interactive)
+  (dired ollie-mount-directory))
 
 (define-derived-mode ollie-mode special-mode "Ollie"
   "Major mode for the ollie chat interface.
