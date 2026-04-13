@@ -18,7 +18,7 @@
 ;;
 ;;   RET       open an input window to compose and submit a prompt
 ;;   C-c C-q   open an input window to compose a queued prompt
-;;   C-c C-c   interrupt the running turn
+;;   C-c C-c   stop the running turn
 ;;   C-c C-k   kill the current session
 ;;   C-c C-n   create a new session (also bound to "n" when idle)
 ;;   C-c C-a   attach to a different existing session
@@ -239,11 +239,11 @@ The server dispatches it asynchronously."
     (user-error "Empty prompt"))
   (ollie--fwrite (ollie--session-file "enqueue") text))
 
-(defun ollie-interrupt ()
-  "Send a stop signal to interrupt the current turn."
+(defun ollie-stop ()
+  "Send a stop signal to the current turn."
   (interactive)
   (ollie--fwrite (ollie--session-file "ctl") "stop\n")
-  (message "ollie: interrupted"))
+  (message "ollie: stopped"))
 
 ;;;; ──────────────── Diff faces ────────────────
 
@@ -423,7 +423,7 @@ QUEUED non-nil means the prompt will be enqueued, not submitted immediately."
   (let ((m (make-sparse-keymap)))
     (define-key m (kbd "RET")     #'ollie-send-input)
     (define-key m (kbd "C-c C-q") #'ollie-queue-input)
-    (define-key m (kbd "C-c C-c") #'ollie-interrupt)
+    (define-key m (kbd "C-c C-c") #'ollie-stop)
     (define-key m (kbd "C-c C-k") #'ollie-kill-session)
     (define-key m (kbd "C-c C-n") #'ollie-new-and-open)
     (define-key m (kbd "C-c C-a") #'ollie-attach-and-open)
