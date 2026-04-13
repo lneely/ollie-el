@@ -318,7 +318,7 @@ Also updates the cached mode-line state."
         (setq ollie--mode-line-state (ollie--state))
         (setq ollie--mode-line-usage
               (or (condition-case nil
-                      (when-let (s (ollie--fread (ollie--session-file "usage")))
+                      (when-let (s (ollie--fread (ollie--session-file "ctxsz")))
                         (string-trim s))
                     (error nil))
                   ""))
