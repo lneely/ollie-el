@@ -88,11 +88,11 @@ An alist of (KEY . VALUE) string pairs; valid keys are
 
 ;;;; ──────────────── Paths ────────────────
 
-(defun ollie--ctl-path ()
-  (expand-file-name "ctl" ollie-mount-directory))
-
 (defun ollie--sessions-dir ()
   (expand-file-name "s" ollie-mount-directory))
+
+(defun ollie--sessions-new-path ()
+  (expand-file-name "new" (ollie--sessions-dir)))
 
 (defun ollie--session-file (name)
   "Return the full path to file NAME inside the current session directory.
@@ -118,9 +118,6 @@ Signals `user-error' if no session is active."
       (insert-file-contents path)
       (buffer-string))))
 
-(defun ollie--write-root-ctl (cmd)
-  "Write CMD (without trailing newline) to the root ctl file."
-  (ollie--fwrite (ollie--ctl-path) (concat cmd "\n")))
 
 ;;;; ──────────────── Session enumeration ────────────────
 
@@ -161,14 +158,17 @@ Returns the new session ID."
     (user-error "ollie-9p not mounted at %s (customize `ollie-mount-directory')"
                 ollie-mount-directory))
   (let* ((effective-opts (or opts ollie-default-session-opts))
+         ;; cwd is required; inject it if not already present.
+         (effective-opts (if (assoc "cwd" effective-opts)
+                             effective-opts
+                           (cons (cons "cwd" default-directory) effective-opts)))
          (before      (ollie--session-ids))
          (seen        (make-hash-table :test 'equal))
-         (cmd         (concat "new"
-                              (mapconcat (lambda (kv)
-                                           (format " %s=%s" (car kv) (cdr kv)))
-                                         effective-opts ""))))
+         (cmd         (mapconcat (lambda (kv)
+                                   (format "%s=%s" (car kv) (cdr kv)))
+                                 effective-opts " ")))
     (dolist (id before) (puthash id t seen))
-    (ollie--write-root-ctl cmd)
+    (ollie--fwrite (ollie--sessions-new-path) (concat cmd "\n"))
     (let ((deadline (+ (float-time) 5.0))
           result)
       (while (and (not result) (< (float-time) deadline))
@@ -199,7 +199,7 @@ Returns the new session ID."
   (interactive)
   (unless ollie--session-id (user-error "No active session"))
   (when (yes-or-no-p (format "Kill ollie session %s? " ollie--session-id))
-    (ollie--write-root-ctl (concat "kill " ollie--session-id))
+    (delete-directory (expand-file-name ollie--session-id (ollie--sessions-dir)) t)
     (ollie--stop-watching)
     (setq ollie--session-id nil
           ollie--chat-size -1)
@@ -320,10 +320,10 @@ Must be called after `ansi-color-apply-on-region'."
            ;; Inside a result block: colorize diff lines.
            (in-result
             (let ((face (cond
-                         ((or (string-prefix-p "+++" line)
-                              (string-prefix-p "---" line)) 'shadow)
-                         ((string-prefix-p "+"   line)      'ollie-diff-added)
-                         ((string-prefix-p "-"   line)      'ollie-diff-removed)
+                         ((or (string-prefix-p "＋++" line)
+                              (string-prefix-p "−--" line)) 'shadow)
+                         ((string-prefix-p "＋"  line)      'ollie-diff-added)
+                         ((string-prefix-p "−"   line)      'ollie-diff-removed)
                          ((string-prefix-p "@@"  line)      'ollie-diff-hunk-header))))
               (when face
                 (put-text-property bol eol 'face face)))))
