@@ -22,6 +22,7 @@
 ;;   C-c C-k   kill the current session
 ;;   C-c C-n   create a new session (also bound to "n" when idle)
 ;;   C-c C-a   attach to a different existing session
+;;   C-c C-p   show the rendered system prompt
 ;;   g         force-refresh the chat log
 ;;
 ;; In the *ollie-input* window:
@@ -443,6 +444,7 @@ QUEUED non-nil means the prompt will be enqueued, not submitted immediately."
     (define-key m (kbd "C-c C-n") #'ollie-new-and-open)
     (define-key m (kbd "C-c C-a") #'ollie-attach-and-open)
     (define-key m (kbd "C-c C-d") #'ollie-dired)
+    (define-key m (kbd "C-c C-p") #'ollie-show-system-prompt)
     (define-key m (kbd "n")       #'ollie-new-and-open)
     (define-key m (kbd "g")       #'ollie-refresh)
     m)
@@ -491,6 +493,26 @@ Key bindings:
                    (concat "  " (replace-regexp-in-string "%" "%%" ollie--mode-line-usage))))
                 "  "
                 mode-line-end-spaces)))
+
+;;;; ──────────────── System prompt ────────────────
+
+(defun ollie-show-system-prompt ()
+  "Display the rendered system prompt for the current session in a buffer."
+  (interactive)
+  (let* ((path (ollie--session-file "systemprompt"))
+         (text (ollie--fread path)))
+    (unless text
+      (user-error "Could not read system prompt"))
+    (let ((buf (get-buffer-create "*ollie-system-prompt*")))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert text)
+          (goto-char (point-min)))
+        (view-mode 1)
+        (when (fboundp 'markdown-mode)
+          (markdown-mode)))
+      (pop-to-buffer buf))))
 
 ;;;; ──────────────── Entry points ────────────────
 
