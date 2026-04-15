@@ -45,7 +45,7 @@ Optionally set a mount path and default session options:
 
 | Command | Description |
 |---------|-------------|
-| `M-x ollie` | Open chat; attach to last session or create a new one |
+| `M-x ollie` | Open chat; attach to last session for `default-directory`, or create a new one |
 | `M-x ollie-new-and-open` | Force-create a new session and open chat |
 | `M-x ollie-attach-and-open` | Attach to an existing session by ID |
 
