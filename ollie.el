@@ -134,18 +134,44 @@ Signals `user-error' if no session is active."
 ;;;; ──────────────── Last-session persistence ────────────────
 
 (defun ollie--persist-session (id)
-  "Save ID to the last-session file."
-  (let ((path (ollie--last-session-path)))
+  "Upsert the {cwd}TAB{id} entry for `default-directory' in the last-session file."
+  (let* ((path (ollie--last-session-path))
+         (cwd  (expand-file-name default-directory))
+         (raw  (ollie--fread path))
+         (lines (when raw
+                  (seq-filter (lambda (l) (not (string-empty-p (string-trim l))))
+                              (split-string raw "\n"))))
+         (entry (concat cwd "\t" id))
+         (found nil)
+         (new-lines
+          (mapcar (lambda (l)
+                    (let ((parts (split-string l "\t" nil nil)))
+                      (if (and (= (length parts) 2) (string= (car parts) cwd))
+                          (progn (setq found t) entry)
+                        l)))
+                  lines)))
     (make-directory (file-name-directory path) t)
-    (ollie--fwrite path (concat id "\n"))))
+    (ollie--fwrite path
+                   (concat (mapconcat #'identity
+                                      (if found new-lines (append new-lines (list entry)))
+                                      "\n")
+                           "\n"))))
 
 (defun ollie--recall-session ()
-  "Return the last-used session ID if it still exists, else nil."
-  (when-let* ((raw (ollie--fread (ollie--last-session-path)))
-              (id  (string-trim raw)))
-    (when (and (not (string-empty-p id))
-               (file-directory-p (expand-file-name id (ollie--sessions-dir))))
-      id)))
+  "Return the last-used session ID for `default-directory' if it still exists, else nil."
+  (let* ((path (ollie--last-session-path))
+         (cwd  (expand-file-name default-directory))
+         (raw  (ollie--fread path)))
+    (when raw
+      (catch 'found
+        (dolist (line (split-string raw "\n"))
+          (let ((parts (split-string line "\t" nil nil)))
+            (when (and (= (length parts) 2)
+                       (string= (car parts) cwd))
+              (let ((id (string-trim (cadr parts))))
+                (when (and (not (string-empty-p id))
+                           (file-directory-p (expand-file-name id (ollie--sessions-dir))))
+                  (throw 'found id))))))))))
 
 ;;;; ──────────────── Session lifecycle ────────────────
 
