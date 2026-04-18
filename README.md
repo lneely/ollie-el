@@ -16,7 +16,7 @@ The answer is yes. The implementation uses only built-in Emacs file operations: 
 olliesrv start
 ```
 
-By default the server mounts at `~/mnt/ollie`. Set `OLLIE_9MOUNT` to use a different path.
+By default the server mounts at `~/mnt/ollie`. Set `OLLIE` to use a different path.
 
 ## Installation
 

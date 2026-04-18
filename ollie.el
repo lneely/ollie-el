@@ -7,7 +7,7 @@
 ;;; Commentary:
 ;;
 ;; ollie.el talks to an ollie-9p session through plain file I/O on the
-;; mounted filesystem (default: ~/mnt/ollie, or $OLLIE_9MOUNT).
+;; mounted filesystem (default: ~/mnt/ollie, or $OLLIE).
 ;;
 ;; Quick start:
 ;;
@@ -50,7 +50,7 @@
   :prefix "ollie-")
 
 (defcustom ollie-mount-directory
-  (or (getenv "OLLIE_9MOUNT") (expand-file-name "~/mnt/ollie"))
+  (or (getenv "OLLIE") (expand-file-name "~/mnt/ollie"))
   "Mount point for the ollie-9p filesystem."
   :type 'directory
   :group 'ollie)
