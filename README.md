@@ -20,17 +20,17 @@ By default the server mounts at `~/mnt/ollie`. Set `OLLIE` to use a different pa
 
 ## Installation
 
-Add `ollie.el` to your load path:
+Add `ellie.el` to your load path:
 
 ```elisp
 (add-to-list 'load-path "/path/to/ollie-el")
-(require 'ollie)
+(require 'ellie)
 ```
 
 Or with `use-package`:
 
 ```elisp
-(use-package ollie
+(use-package ellie
   :load-path "/path/to/ollie-el")
 ```
 

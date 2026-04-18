@@ -1,4 +1,4 @@
-;;; ollie.el --- Emacs client for ollie-9p  -*- lexical-binding: t -*-
+;;; ellie.el --- Emacs client for ollie-9p  -*- lexical-binding: t -*-
 
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1"))
@@ -11,7 +11,7 @@
 ;;
 ;; Quick start:
 ;;
-;;   (require 'ollie)        ; or use use-package / :load-path
+;;   (require 'ellie)        ; or use use-package / :load-path
 ;;   M-x ollie              ; opens *ollie*, attaches to last session or creates one
 ;;
 ;; In the *ollie* buffer:
@@ -586,5 +586,5 @@ Attaches to the last session if it still exists; otherwise creates a new one."
       (ollie--start-watching))
     (pop-to-buffer buf)))
 
-(provide 'ollie)
-;;; ollie.el ends here
+(provide 'ellie)
+;;; ellie.el ends here
