@@ -45,13 +45,13 @@ Optionally set a mount path and default session options:
 
 | Command | Description |
 |---------|-------------|
-| `M-x ollie` | Open chat; attach to last session for `default-directory`, or create a new one |
-| `M-x ollie-new-and-open` | Force-create a new session and open chat |
-| `M-x ollie-attach-and-open` | Attach to an existing session by ID |
+| `M-x ellie` | Open chat; attach to last session for `default-directory`, or create a new one |
+| `M-x ellie-new-and-open` | Force-create a new session and open chat |
+| `M-x ellie-attach-and-open` | Attach to an existing session by ID |
 
 ## UI
 
-In the `*ollie*` buffer:
+In the `*ellie*` buffer:
 
 | Key | Action |
 |-----|--------|
@@ -65,7 +65,7 @@ In the `*ollie*` buffer:
 | `C-c C-d` | Open the ollie mount in Dired |
 | `g` | Force-refresh the chat log |
 
-In the `*ollie-input*` window:
+In the `*ellie-input*` window:
 
 | Key | Action |
 |-----|--------|
