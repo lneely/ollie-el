@@ -1,10 +1,10 @@
-# ollie-el
+# ellie
 
 An [ollie](https://github.com/lneely/ollie) front-end, via [ollie-9p](https://github.com/lneely/ollie-9p), for our emacs friends. Provides a chat buffer, prompt composition, interrupt handling, and session management. The agent core, backends, and tools are handled by the ollie-9p server.
 
 ## Background
 
-ollie-tui proved that a full interactive client could be built on top of the ollie-9p filesystem using nothing but plain file I/O. ollie-el asks the same question in a different environment: can the same interface be built as an Emacs package, with no knowledge of ollie's internals and no dependencies beyond Emacs itself?
+ollie-tui proved that a full interactive client could be built on top of the ollie-9p filesystem using nothing but plain file I/O. ellie asks the same question in a different environment: can the same interface be built as an Emacs package, with no knowledge of ollie's internals and no dependencies beyond Emacs itself?
 
 The answer is yes. The implementation uses only built-in Emacs file operations: `write-region` to submit prompts, a half-second timer to tail the chat log by comparing file sizes, and `insert-file-contents` to read new content into a buffer. The ollie-9p filesystem is the entire API surface.
 
@@ -23,7 +23,7 @@ By default the server mounts at `~/mnt/ollie`. Set `OLLIE` to use a different pa
 Add `ellie.el` to your load path:
 
 ```elisp
-(add-to-list 'load-path "/path/to/ollie-el")
+(add-to-list 'load-path "/path/to/ellie")
 (require 'ellie)
 ```
 
@@ -31,7 +31,7 @@ Or with `use-package`:
 
 ```elisp
 (use-package ellie
-  :load-path "/path/to/ollie-el")
+  :load-path "/path/to/ellie")
 ```
 
 Optionally set a mount path and default session options:
