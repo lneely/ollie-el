@@ -278,7 +278,7 @@ The server dispatches it asynchronously."
   "Enqueue TEXT as a prompt to run after the current turn finishes."
   (when (string-empty-p (string-trim text))
     (user-error "Empty prompt"))
-  (ellie--fwrite (ellie--session-file "enqueue") text))
+  (ellie--fwrite (ellie--session-file "fifo.in") text))
 
 (defun ellie-stop ()
   "Send a stop signal to the current turn."
