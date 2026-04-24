@@ -32,11 +32,11 @@
 ;;
 ;; State changes while the agent is running:
 ;;
-;;   Writes to the backend, model, and agent files are rejected by the
+;;   Writes to spec (backend=, model=, agent=) are rejected by the
 ;;   server when the agent is not idle.  Commands sent via ctl (e.g.
-;;   compact, clear, model) are dispatched asynchronously and cannot
-;;   return errors; if the agent is running, the command is silently
-;;   rejected.  Read the state file to confirm a change took effect.
+;;   compact, clear) are dispatched asynchronously and cannot return
+;;   errors; if the agent is running, the command is silently rejected.
+;;   Read spec and check state= to confirm a change took effect.
 
 ;;; Code:
 
@@ -256,9 +256,10 @@ Returns the new session ID."
 (defun ellie--state ()
   "Return the current session state string, or \"unknown\" on any error."
   (condition-case nil
-      (or (when-let (s (ellie--fread (ellie--session-file "state")))
-            (string-trim s))
-          "unknown")
+      (let ((spec (ellie--fread (ellie--session-file "spec"))))
+        (if (and spec (string-match "^state=\\(.*\\)$" spec))
+            (string-trim (match-string 1 spec))
+          "unknown"))
     (error "unknown")))
 
 (defun ellie--idle-p ()
