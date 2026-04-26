@@ -41,6 +41,7 @@
 ;;; Code:
 
 (require 'ansi-color)
+(require 'markdown-mode nil t)
 
 ;;;; ──────────────── Customization ────────────────
 
@@ -287,26 +288,6 @@ The server dispatches it asynchronously."
   (ellie--fwrite (ellie--session-file "ctl") "stop\n")
   (message "ollie: stopped"))
 
-;;;; ──────────────── Diff faces ────────────────
-
-(defface ellie-diff-added
-  '((((background dark))  :foreground "#5faf5f")
-    (((background light)) :foreground "#3a7a3a"))
-  "Face for added lines in tool-result diff output."
-  :group 'ellie)
-
-(defface ellie-diff-removed
-  '((((background dark))  :foreground "#d75f5f")
-    (((background light)) :foreground "#a02020"))
-  "Face for removed lines in tool-result diff output."
-  :group 'ellie)
-
-(defface ellie-diff-hunk-header
-  '((((background dark))  :foreground "#5fafaf")
-    (((background light)) :foreground "#1a6a6a"))
-  "Face for hunk headers in tool-result diff output."
-  :group 'ellie)
-
 ;;;; ──────────────── Chat display ────────────────
 
 ;; We cache the mtime so we only re-read the file when it actually changes.
@@ -318,43 +299,7 @@ The server dispatches it asynchronously."
 (defvar-local ellie--mode-line-usage ""
   "Cached usage string for the mode line.")
 
-(defun ellie--block-start-p (line)
-  "Return non-nil if LINE begins a named chat block."
-  (or (string-prefix-p "-> "          line)
-      (string-prefix-p "user: "       line)
-      (string-prefix-p "assistant: "  line)
-      (string-prefix-p "retrying "    line)
-      (string-prefix-p "error: "      line)
-      (string-prefix-p "agent stalled" line)))
 
-(defun ellie--colorize-diffs ()
-  "Add diff highlighting to tool-result blocks in the current buffer.
-Must be called after `ansi-color-apply-on-region'."
-  (save-excursion
-    (goto-char (point-min))
-    (let ((in-result nil))
-      (while (not (eobp))
-        (let* ((bol (point))
-               (eol (line-end-position))
-               (line (buffer-substring-no-properties bol eol)))
-          (cond
-           ;; Tool call: enter result mode; don't colorize this line.
-           ((string-prefix-p "-> " line)
-            (setq in-result t))
-           ;; Block-start: exit result mode; don't colorize this line.
-           ((and in-result (ellie--block-start-p line))
-            (setq in-result nil))
-           ;; Inside a result block: colorize diff lines.
-           (in-result
-            (let ((face (cond
-                         ((or (string-prefix-p "＋++" line)
-                              (string-prefix-p "−--" line)) 'shadow)
-                         ((string-prefix-p "＋"  line)      'ellie-diff-added)
-                         ((string-prefix-p "−"   line)      'ellie-diff-removed)
-                         ((string-prefix-p "@@"  line)      'ellie-diff-hunk-header))))
-              (when face
-                (put-text-property bol eol 'face face)))))
-          (forward-line 1))))))
 
 (defun ellie--refresh ()
   "Refresh the chat buffer if the chat file has grown on disk.
@@ -380,7 +325,7 @@ Also updates the cached mode-line state."
             (erase-buffer)
             (insert-file-contents chat)
             (ansi-color-apply-on-region (point-min) (point-max))
-            (ellie--colorize-diffs)
+            (font-lock-ensure)
             (when at-end (goto-char (point-max)))))
         (force-mode-line-update)))))
 
@@ -505,6 +450,9 @@ Key bindings:
 \\{ellie-mode-map}"
   :group 'ellie
   (buffer-disable-undo)
+  (when (fboundp 'markdown-mode)
+    (setq-local font-lock-defaults '(markdown-mode-font-lock-keywords t))
+    (font-lock-mode 1))
   (setq-local mode-line-format
               `("%e"
                 mode-line-front-space
