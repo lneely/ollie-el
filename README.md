@@ -4,7 +4,7 @@ An [ollie](https://github.com/lneely/ollie) front-end, via [ollie-9p](https://gi
 
 ## Background
 
-ollie-tui proved that a full interactive client could be built on top of the ollie-9p filesystem using nothing but plain file I/O. ellie asks the same question in a different environment: can the same interface be built as an Emacs package, with no knowledge of ollie's internals and no dependencies beyond Emacs itself?
+`s/sh` proved that a full interactive client could be built on top of the ollie-9p filesystem using nothing but plain file I/O. ellie asks the same question in a different environment: can the same interface be built as an Emacs package, with no knowledge of ollie's internals and no dependencies beyond Emacs itself?
 
 The answer is yes. The implementation uses only built-in Emacs file operations: `write-region` to submit prompts, a half-second timer to tail the chat log by comparing file sizes, and `insert-file-contents` to read new content into a buffer. The ollie-9p filesystem is the entire API surface.
 
