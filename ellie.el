@@ -535,5 +535,268 @@ Attaches to the last session if it still exists; otherwise creates a new one."
       (ellie--start-watching))
     (pop-to-buffer buf)))
 
+;;;; ──────────────── Code completion ────────────────
+
+(defcustom ellie-complete-backend
+  (or (getenv "OLLIE_COMPLETE_BACKEND") "")
+  "Backend for code completion (e.g. \"ollama\", \"openrouter\")."
+  :type 'string
+  :group 'ellie)
+
+(defcustom ellie-complete-model
+  (or (getenv "OLLIE_COMPLETE_MODEL") "")
+  "Model for code completion (e.g. \"qwen3:4b\")."
+  :type 'string
+  :group 'ellie)
+
+(defcustom ellie-complete-prefix-max 4000
+  "Maximum characters of context before point."
+  :type 'integer
+  :group 'ellie)
+
+(defcustom ellie-complete-suffix-max 1000
+  "Maximum characters of context after point."
+  :type 'integer
+  :group 'ellie)
+
+(defvar ellie--complete-timer nil
+  "Timer for polling completion result.")
+
+(defun ellie--complete-session-id ()
+  "Return the deterministic copilot session ID for `default-directory'."
+  (let* ((cwd (expand-file-name default-directory))
+         ;; Emulate POSIX cksum: use the same CRC but just take the numeric hash.
+         ;; We shell out once to stay consistent with the acme script.
+         (hash (string-trim
+                (shell-command-to-string
+                 (format "printf '%%s' %s | cksum | awk '{print $1}'"
+                         (shell-quote-argument cwd))))))
+    (concat hash "-copilot")))
+
+(defun ellie--complete-ensure-session ()
+  "Find or create the copilot session for `default-directory'.
+Returns the session directory path."
+  (when (string-empty-p ellie-complete-backend)
+    (user-error "Set `ellie-complete-backend' or $OLLIE_COMPLETE_BACKEND"))
+  (when (string-empty-p ellie-complete-model)
+    (user-error "Set `ellie-complete-model' or $OLLIE_COMPLETE_MODEL"))
+  (let* ((id (ellie--complete-session-id))
+         (sdir (expand-file-name id (ellie--sessions-dir))))
+    (if (file-directory-p sdir)
+        ;; Check for failed state; kill and recreate if needed.
+        (let ((state (ellie--complete-state sdir)))
+          (when (or (string-prefix-p "failed" state)
+                    (string-prefix-p "error" state))
+            (ignore-errors (ellie--fwrite (expand-file-name "ctl" sdir) "kill\n"))
+            (sleep-for 0.1)
+            (ellie--complete-create-session id))
+          sdir)
+      (ellie--complete-create-session id)
+      sdir)))
+
+(defun ellie--complete-create-session (id)
+  "Create a copilot session with ID."
+  (let ((spec (format "name=%s\ncwd=%s\nagent=copilot\nbackend=%s\nmodel=%s\n"
+                       id (expand-file-name default-directory)
+                       ellie-complete-backend ellie-complete-model)))
+    (ellie--fwrite (ellie--sessions-new-path) spec)
+    (let ((sdir (expand-file-name id (ellie--sessions-dir)))
+          (deadline (+ (float-time) 5.0)))
+      (while (and (not (file-directory-p sdir))
+                  (< (float-time) deadline))
+        (sleep-for 0.05))
+      (unless (file-directory-p sdir)
+        (user-error "Timeout waiting for copilot session %s" id)))))
+
+(defun ellie--complete-strip (text)
+  "Strip markdown fences and info lines from TEXT."
+  (let ((lines (split-string text "\n")))
+    (setq lines (seq-remove (lambda (l)
+                              (or (string-match-p "\\````" l)
+                                  (string-match-p "\\`:: " l)))
+                            lines))
+    (string-join lines "\n")))
+
+(defun ellie--complete-state (sdir)
+  "Read the session state from cfg in SDIR."
+  (let ((cfg (ellie--fread (expand-file-name "cfg" sdir))))
+    (if (and cfg (string-match "^state=\\(.*\\)$" cfg))
+        (string-trim (match-string 1 cfg))
+      "unknown")))
+
+(defun ellie--read-from-byte-offset (path offset)
+  "Read PATH and return content starting at byte OFFSET as a string."
+  (if (or (<= offset 0) (not (file-exists-p path)))
+      (or (ellie--fread path) "")
+    (with-temp-buffer
+      (set-buffer-multibyte nil)
+      (insert-file-contents-literally path)
+      (let ((raw (buffer-substring-no-properties
+                  (min (1+ offset) (point-max))
+                  (point-max))))
+        (decode-coding-string raw 'utf-8)))))
+
+;; Ghost text state.
+(defvar ellie--ghost-overlay nil "Overlay showing the ghost completion.")
+(defvar ellie--ghost-text nil "The pending ghost text string.")
+(defvar ellie--ghost-pos nil "Buffer position where ghost text should be inserted.")
+(defvar ellie--ghost-region nil "Cons (BEG . END) of region to replace, or nil.")
+
+(defface ellie-ghost '((t :foreground "gray50" :slant italic))
+  "Face for ghost-text completion suggestions."
+  :group 'ellie)
+
+(defvar ellie-ghost-mode-map
+  (let ((m (make-sparse-keymap)))
+    (define-key m (kbd "TAB") #'ellie--ghost-accept-cmd)
+    (define-key m (kbd "<tab>") #'ellie--ghost-accept-cmd)
+    (define-key m (kbd "RET") #'ellie--ghost-accept-cmd)
+    (define-key m (kbd "<return>") #'ellie--ghost-accept-cmd)
+    m)
+  "Keymap active while ghost text is showing.")
+
+(define-minor-mode ellie-ghost-mode
+  "Minor mode active while an ellie ghost-text suggestion is visible."
+  :lighter " Ghost"
+  :keymap ellie-ghost-mode-map)
+
+(defun ellie--ghost-show (text pos buf &optional region)
+  "Display TEXT as ghost text at POS in BUF.
+If REGION is a cons (BEG . END), the ghost replaces that region on accept."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (ellie--ghost-dismiss)
+      (setq ellie--ghost-text text
+            ellie--ghost-region region)
+      (if region
+          ;; Region mode: overlay the region with ghost text.
+          (let ((ov (make-overlay (car region) (cdr region) buf)))
+            (setq ellie--ghost-pos (car region)
+                  ellie--ghost-overlay ov)
+            (overlay-put ov 'display (propertize text 'face 'ellie-ghost))
+            (overlay-put ov 'ellie-ghost t))
+        ;; No region: show ghost on next line.
+        (save-excursion
+          (goto-char pos)
+          (end-of-line)
+          (setq ellie--ghost-pos (point))
+          (setq ellie--ghost-overlay (make-overlay (point) (point) buf))
+          (overlay-put ellie--ghost-overlay 'after-string
+                       (propertize (concat "\n" text) 'face 'ellie-ghost))
+          (overlay-put ellie--ghost-overlay 'ellie-ghost t)))
+      (ellie-ghost-mode 1)
+      (add-hook 'pre-command-hook #'ellie--ghost-pre-command nil t))))
+
+(defun ellie--ghost-dismiss ()
+  "Remove any active ghost text."
+  (when ellie--ghost-overlay
+    (delete-overlay ellie--ghost-overlay)
+    (setq ellie--ghost-overlay nil))
+  (setq ellie--ghost-text nil
+        ellie--ghost-pos nil
+        ellie--ghost-region nil)
+  (ellie-ghost-mode -1)
+  (remove-hook 'pre-command-hook #'ellie--ghost-pre-command t))
+
+(defun ellie--ghost-accept ()
+  "Insert the ghost text into the buffer."
+  (when ellie--ghost-text
+    (let ((text ellie--ghost-text)
+          (pos ellie--ghost-pos)
+          (region ellie--ghost-region))
+      (ellie--ghost-dismiss)
+      (if region
+          (progn
+            (delete-region (car region) (cdr region))
+            (goto-char (car region))
+            (insert text))
+        (save-excursion
+          (goto-char pos)
+          (insert "\n" text))
+        (goto-char (+ pos 1 (length text)))))))
+
+(defun ellie--ghost-accept-cmd ()
+  "Interactive command to accept ghost text."
+  (interactive)
+  (ellie--ghost-accept))
+
+(defun ellie--ghost-pre-command ()
+  "Dismiss ghost text on any command not handled by the ghost keymap."
+  (unless (memq this-command '(ellie--ghost-accept-cmd ellie-complete))
+    (ellie--ghost-dismiss)))
+
+;;;###autoload
+(defun ellie-complete ()
+  "Request AI code completion and show it as ghost text on the next line.
+\\`TAB' accepts the suggestion; any other key dismisses it.
+Calling again while a suggestion is showing requests a new one."
+  (interactive)
+  (let* ((prev-region ellie--ghost-region))
+    (ellie--ghost-dismiss)
+    (let* ((sdir (ellie--complete-ensure-session))
+           (filename (or (buffer-file-name) (buffer-name)))
+           (has-region (or (use-region-p) prev-region))
+           (reg-beg (cond ((use-region-p) (region-beginning))
+                          (prev-region (car prev-region))))
+           (reg-end (cond ((use-region-p) (region-end))
+                          (prev-region (cdr prev-region))))
+           (ctx-point (if has-region reg-beg (point)))
+           (prefix (buffer-substring-no-properties
+                    (max (point-min) (- ctx-point ellie-complete-prefix-max))
+                    ctx-point))
+           (selected (if has-region
+                         (buffer-substring-no-properties reg-beg reg-end)
+                       ""))
+           (suffix (buffer-substring-no-properties
+                    (if has-region reg-end (point))
+                    (min (point-max) (+ (if has-region reg-end (point))
+                                        ellie-complete-suffix-max))))
+           (prompt (if has-region
+                     (format "Replace the selected code in %s. Output ONLY the replacement text — no markdown fences, no explanation.\n\n<prefix>\n%s\n</prefix>\n<selected>\n%s\n</selected>\n<suffix>\n%s\n</suffix>"
+                             (file-name-nondirectory filename) prefix selected suffix)
+                   (format "Complete the code at the cursor in %s. Output ONLY the raw text to insert at the cursor position. Do NOT wrap the output in markdown code fences or backticks. No explanation, no preamble.\n\n<prefix>\n%s\n</prefix>\n<suffix>\n%s\n</suffix>"
+                           (file-name-nondirectory filename) prefix suffix)))
+         (cur-point (point))
+         (region-cons (and has-region (cons reg-beg reg-end)))
+         (buf (current-buffer)))
+    (when has-region (deactivate-mark))
+    (message "ellie: completing...")
+    (ellie--fwrite (expand-file-name "prompt" sdir) prompt)
+    (when ellie--complete-timer (cancel-timer ellie--complete-timer))
+    (let ((deadline (+ (float-time) 30.0)))
+      (setq ellie--complete-timer
+            (run-with-timer 0.3 0.3
+                            (lambda ()
+                              (condition-case err
+                                  (let ((state (ellie--complete-state sdir)))
+                                    (cond
+                                     ((string= state "idle")
+                                      (cancel-timer ellie--complete-timer)
+                                      (setq ellie--complete-timer nil)
+                                      (let* ((offset (string-to-number
+                                                      (or (ellie--fread
+                                                           (expand-file-name "offset" sdir))
+                                                          "0")))
+                                             (chat-path (expand-file-name "chat" sdir))
+                                             (result (string-trim-right
+                                                      (ellie--complete-strip
+                                                       (ellie--read-from-byte-offset chat-path offset)))))
+                                        (ellie--fwrite (expand-file-name "ctl" sdir) "clear\n")
+                                        (if (string-empty-p (string-trim result))
+                                            (message "ellie: empty completion")
+                                          (ellie--ghost-show result cur-point buf region-cons)
+                                          (message "ellie: TAB/RET accept · M-/ retry · any key dismiss"))))
+                                     ((> (float-time) deadline)
+                                      (cancel-timer ellie--complete-timer)
+                                      (setq ellie--complete-timer nil)
+                                      (message "ellie: completion timed out"))))
+                                (error
+                                 (cancel-timer ellie--complete-timer)
+                                 (setq ellie--complete-timer nil)
+                                 (message "ellie: completion error: %s" err))))))))))
+
+;;;###autoload
+(define-key global-map (kbd "M-/") #'ellie-complete)
+
 (provide 'ellie)
 ;;; ellie.el ends here
