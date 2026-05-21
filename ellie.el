@@ -108,16 +108,31 @@ Signals `user-error' if no session is active."
 
 ;;;; ──────────────── Low-level file helpers ────────────────
 
+(defun ellie--remount ()
+  "Run ollie-remount to recover a stale FUSE mount."
+  (call-process "ollie-remount" nil nil nil))
+
 (defun ellie--fwrite (path text)
-  "Write TEXT to PATH, suppressing the minibuffer message."
-  (write-region text nil path nil 'silent))
+  "Write TEXT to PATH, retrying after remount on failure."
+  (condition-case nil
+      (write-region text nil path nil 'silent)
+    (file-error
+     (ellie--remount)
+     (write-region text nil path nil 'silent))))
 
 (defun ellie--fread (path)
-  "Return the contents of PATH as a string, or nil if it does not exist."
-  (when (file-exists-p path)
-    (with-temp-buffer
-      (insert-file-contents path)
-      (buffer-string))))
+  "Return the contents of PATH as a string, retrying after remount on failure."
+  (condition-case nil
+      (when (file-exists-p path)
+        (with-temp-buffer
+          (insert-file-contents path)
+          (buffer-string)))
+    (file-error
+     (ellie--remount)
+     (when (file-exists-p path)
+       (with-temp-buffer
+         (insert-file-contents path)
+         (buffer-string))))))
 
 
 ;;;; ──────────────── Session enumeration ────────────────
